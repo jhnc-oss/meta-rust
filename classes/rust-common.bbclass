@@ -17,21 +17,6 @@ RUST_LIBC = "${TCLIBC}"
 RUST_LIBC:class-crosssdk = "glibc"
 RUST_LIBC:class-native = "glibc"
 
-def determine_libc(d, thing):
-    '''Determine which libc something should target'''
-
-    # BUILD is never musl, TARGET may be musl or glibc,
-    # HOST could be musl, but only if a compiler is built to be run on
-    # target in which case HOST_SYS != BUILD_SYS.
-    if thing == 'TARGET':
-        libc = d.getVar('RUST_LIBC')
-    elif thing == 'BUILD' and (d.getVar('HOST_SYS') != d.getVar('BUILD_SYS')):
-        libc = d.getVar('RUST_LIBC')
-    else:
-        libc = d.getVar('RUST_LIBC:class-native')
-
-    return libc
-
 def target_is_armv7(d):
     '''Determine if target is armv7'''
     # TUNE_FEATURES may include arm* even if the target is not arm
@@ -59,28 +44,28 @@ def rust_base_triple(d, thing):
     Note that os is assumed to be some linux form
     '''
 
-    arch = d.getVar('{}_ARCH'.format(thing))
+    # The llvm-target for armv7 is armv7-unknown-linux-gnueabihf
+    if d.getVar('{}_ARCH'.format(thing)) == d.getVar('TARGET_ARCH') and target_is_armv7(d):
+        arch = "armv7"
+    else:
+        arch = d.getVar('{}_ARCH'.format(thing))
 
-    # All the Yocto targets are Linux and are 'unknown'
-    vendor = "-unknown"
+    # Substituting "unknown" when vendor is empty will match rust's standard
+    # targets when building native recipes (including rust-native itself)
+    vendor = d.getVar('{}_VENDOR'.format(thing)) or "-unknown"
+
     os = d.getVar('{}_OS'.format(thing))
-    libc = determine_libc(d, thing)
 
-    # Prefix with a dash and convert glibc -> gnu
-    if libc == "glibc":
-        libc = "-gnu"
-    elif libc == "musl":
-        libc = "-musl"
-
-    # Don't double up musl (only appears to be the case on aarch64)
-    if os == "linux-musl":
-        if libc != "-musl":
-            bb.fatal("{}_OS was '{}' but TCLIBC was not 'musl'".format(thing, os))
-        os = "linux"
-
+    # Default to glibc
+    libc = "-gnu"
+    os = d.getVar('{}_OS'.format(thing))
     # This catches ARM targets and appends the necessary hard float bits
     if os == "linux-gnueabi" or os == "linux-musleabi":
         libc = bb.utils.contains('TUNE_FEATURES', 'callconvention-hard', 'hf', '', d)
+    elif "musl" in os:
+        libc = "-musl"
+        os = "linux"
+
     return arch + vendor + '-' + os + libc
 
 # Required for Dunfell compatbility
@@ -117,7 +102,6 @@ def arch_to_rust_arch(arch):
 
 RUST_BUILD_SYS = "${@rust_base_triple(d, 'BUILD')}"
 RUST_HOST_SYS = "${@rust_base_triple(d, 'HOST')}"
-RUST_HOST_SYS:class-native = "${HOST_SYS}"
 RUST_TARGET_SYS = "${@rust_base_triple(d, 'TARGET')}"
 
 # wrappers to get around the fact that Rust needs a single

@@ -30,7 +30,7 @@ INHIBIT_DEFAULT_RUST_DEPS = "1"
 # so it might make sense to take it's mapping. For now, though, we just mention
 # the bits we need explicitly.
 DEPENDS += "rust-llvm-native"
-DEPENDS += "virtual/${TARGET_PREFIX}gcc-crosssdk virtual/nativesdk-${TARGET_PREFIX}compilerlibs virtual/nativesdk-libc"
+DEPENDS += "virtual/${TARGET_PREFIX}gcc virtual/nativesdk-${TARGET_PREFIX}compilerlibs virtual/nativesdk-libc"
 DEPENDS += "rust-native"
 
 PROVIDES = "virtual/nativesdk-${TARGET_PREFIX}rust"
@@ -64,7 +64,7 @@ do_compile () {
 
 do_install () {
 	mkdir -p ${D}${prefix}/${base_libdir_native}/rustlib
-	cp ${WORKDIR}/targets/${TARGET_SYS}.json ${D}${prefix}/${base_libdir_native}/rustlib
+	cp ${WORKDIR}/targets/${RUST_TARGET_SYS}.json ${D}${prefix}/${base_libdir_native}/rustlib
 }
 
 rust_cross_sysroot_preprocess() {
